@@ -16,9 +16,10 @@ namespace LiveCaptionsTranslator
 
         private static readonly Queue<string> pendingTextQueue = new();
         private static readonly TranslationTaskQueue translationTaskQueue = new();
+        private static readonly SuggestionTaskQueue suggestionTaskQueue = new();
         private static DateTime lastSpeechTime = DateTime.Now;
         private static string accumulatedText = "";
-        private static readonly int PAUSE_DETECTION_MS = 3000; // 2 second pause detection
+        private static readonly int PAUSE_DETECTION_MS = 1000; // 3 second pause detection
 
         public static AutomationElement? Window
         {
@@ -210,24 +211,60 @@ namespace LiveCaptionsTranslator
                     Caption.DisplayTranslatedCaption = "";
                 }
 
-                // Translate
-                if (pendingTextQueue.Count > 0)
+                // Handle suggestion mode separately from translation
+                if (Setting.SuggestionMode)
                 {
-                    var originalSnapshot = pendingTextQueue.Dequeue();
-
-                    if (LogOnlyFlag)
-                    {
-                        bool isOverwrite = await IsOverwrite(originalSnapshot);
-                        await LogOnly(originalSnapshot, isOverwrite);
-                    }
-                    else
-                    {
-                        translationTaskQueue.Enqueue(token => Task.Run(
-                            () => Translate(originalSnapshot, token), token), originalSnapshot);
-                    }
+                    await ProcessSuggestionMode();
+                }
+                else
+                {
+                    // Normal translation mode
+                    await ProcessTranslationMode();
                 }
 
                 Thread.Sleep(40);
+            }
+        }
+
+        private static async Task ProcessSuggestionMode()
+        {
+            // In suggestion mode, handle both suggestions and regular translation queue
+            if (pendingTextQueue.Count > 0)
+            {
+                var originalSnapshot = pendingTextQueue.Dequeue();
+
+                if (LogOnlyFlag)
+                {
+                    bool isOverwrite = await IsOverwrite(originalSnapshot);
+                    await LogOnly(originalSnapshot, isOverwrite);
+                }
+                else
+                {
+                    // Process as suggestion using dedicated queue
+                    suggestionTaskQueue.Enqueue(
+                        token => GenerateSuggestionsAsync(originalSnapshot, token),
+                        originalSnapshot);
+                }
+            }
+        }
+
+        private static async Task ProcessTranslationMode()
+        {
+            // Normal translation processing
+            if (pendingTextQueue.Count > 0)
+            {
+                var originalSnapshot = pendingTextQueue.Dequeue();
+
+                if (LogOnlyFlag)
+                {
+                    bool isOverwrite = await IsOverwrite(originalSnapshot);
+                    await LogOnly(originalSnapshot, isOverwrite);
+                }
+                else
+                {
+                    translationTaskQueue.Enqueue(token => Task.Run(
+                        () => Translate(originalSnapshot, token), token), originalSnapshot);
+                }
             }
         }
 
@@ -235,42 +272,80 @@ namespace LiveCaptionsTranslator
         {
             while (true)
             {
-                var (translatedText, isChoke) = translationTaskQueue.Output;
-
-                if (LogOnlyFlag)
+                if (Setting.SuggestionMode)
                 {
-                    Caption.TranslatedCaption = string.Empty;
-                    Caption.DisplayTranslatedCaption = "[Paused]";
-                    Caption.OverlayTranslatedCaption = "[Paused]";
+                    // Handle suggestion mode display
+                    await DisplaySuggestionLoop();
                 }
-                else if (!string.IsNullOrEmpty(RegexPatterns.NoticePrefix().Replace(
-                             translatedText, string.Empty).Trim()) &&
-                         string.CompareOrdinal(Caption.TranslatedCaption, translatedText) != 0)
+                else
                 {
-                    // Main page
-                    Caption.TranslatedCaption = translatedText;
-                    Caption.DisplayTranslatedCaption =
-                        TextUtil.ShortenDisplaySentence(Caption.TranslatedCaption, TextUtil.VERYLONG_THRESHOLD);
-
-                    // Overlay window
-                    if (Caption.TranslatedCaption.Contains("[ERROR]") || Caption.TranslatedCaption.Contains("[WARNING]"))
-                        Caption.OverlayTranslatedCaption = Caption.TranslatedCaption;
-                    else
-                    {
-                        var match = RegexPatterns.NoticePrefixAndTranslation().Match(Caption.TranslatedCaption);
-                        string noticePrefix = match.Groups[1].Value;
-                        string translation = match.Groups[2].Value;
-                        Caption.OverlayTranslatedCaption = noticePrefix + Caption.OverlayPreviousTranslation + translation;
-                        // Caption.OverlayTranslatedCaption =
-                        //     TextUtil.ShortenDisplaySentence(Caption.OverlayTranslatedCaption, TextUtil.VERYLONG_THRESHOLD);
-                    }
+                    // Handle normal translation mode display
+                    await DisplayTranslationLoop();
                 }
 
-                // If the original sentence is a complete sentence, choke for better visual experience.
-                if (isChoke)
-                    Thread.Sleep(720);
                 Thread.Sleep(40);
             }
+        }
+
+        private static async Task DisplaySuggestionLoop()
+        {
+            // In suggestion mode, update suggestions from the dedicated queue
+            string currentSuggestions = suggestionTaskQueue.CurrentSuggestions;
+            
+            if (!string.IsNullOrEmpty(currentSuggestions) && 
+                string.CompareOrdinal(Caption.ConversationSuggestions, currentSuggestions) != 0)
+            {
+                Caption.ConversationSuggestions = currentSuggestions;
+            }
+
+            // Also handle any translation output that might exist
+            var (translatedText, isChoke) = translationTaskQueue.Output;
+            if (!string.IsNullOrEmpty(translatedText) && !LogOnlyFlag)
+            {
+                Caption.TranslatedCaption = translatedText;
+                Caption.DisplayTranslatedCaption = 
+                    TextUtil.ShortenDisplaySentence(Caption.TranslatedCaption, TextUtil.VERYLONG_THRESHOLD);
+            }
+
+            Thread.Sleep(40);
+        }
+
+        private static async Task DisplayTranslationLoop()
+        {
+            var (translatedText, isChoke) = translationTaskQueue.Output;
+
+            if (LogOnlyFlag)
+            {
+                Caption.TranslatedCaption = string.Empty;
+                Caption.DisplayTranslatedCaption = "[Paused]";
+                Caption.OverlayTranslatedCaption = "[Paused]";
+            }
+            else if (!string.IsNullOrEmpty(RegexPatterns.NoticePrefix().Replace(
+                         translatedText, string.Empty).Trim()) &&
+                     string.CompareOrdinal(Caption.TranslatedCaption, translatedText) != 0)
+            {
+                // Main page
+                Caption.TranslatedCaption = translatedText;
+                Caption.DisplayTranslatedCaption =
+                    TextUtil.ShortenDisplaySentence(Caption.TranslatedCaption, TextUtil.VERYLONG_THRESHOLD);
+
+                // Overlay window
+                if (Caption.TranslatedCaption.Contains("[ERROR]") || Caption.TranslatedCaption.Contains("[WARNING]"))
+                    Caption.OverlayTranslatedCaption = Caption.TranslatedCaption;
+                else
+                {
+                    var match = RegexPatterns.NoticePrefixAndTranslation().Match(Caption.TranslatedCaption);
+                    string noticePrefix = match.Groups[1].Value;
+                    string translation = match.Groups[2].Value;
+                    Caption.OverlayTranslatedCaption = noticePrefix + Caption.OverlayPreviousTranslation + translation;
+                    // Caption.OverlayTranslatedCaption =
+                    //     TextUtil.ShortenDisplaySentence(Caption.OverlayTranslatedCaption, TextUtil.VERYLONG_THRESHOLD);
+                }
+            }
+
+            // If the original sentence is a complete sentence, choke for better visual experience.
+            if (isChoke)
+                Thread.Sleep(720);
         }
 
         public static async Task<(string, bool)> Translate(string text, CancellationToken token = default)
@@ -358,6 +433,43 @@ namespace LiveCaptionsTranslator
             {
                 Console.WriteLine($"[ERROR] Suggestion Generation Failed: {ex.Message}");
                 return "[ERROR] Could not generate suggestions";
+            }
+        }
+
+        public static async Task<string> GenerateSuggestionsAsync(string conversationText, CancellationToken token = default)
+        {
+            try
+            {
+                // Create a prompt for generating conversation suggestions
+                string suggestionPrompt = $"Based on this conversation context: \"{conversationText}\", " +
+                    "provide exactly 3 brief and natural conversation suggestions to continue the dialogue. " +
+                    "Format them as a numbered list (1., 2., 3.) and keep each suggestion under 10 words. " +
+                    "Make suggestions friendly and relevant for gaming conversations, especially for Arc Raiders, a third-person extraction shooter where players team up to explore a post-apocalyptic Earth, fight against hostile robots called the 'ARC,' and collect loot, with the risk of losing everything if they are defeated, a player-versus-environment-versus-player (PvEvP) game." +
+                    "Focus on tactical communication, team coordination, or casual gaming chat.";
+
+                // Use the LLM API directly to generate suggestions (not through translation)
+                string suggestions;
+                
+                if (TranslateAPI.IsLLMBased)
+                {
+                    // For LLM-based APIs, send the prompt directly as a system message
+                    suggestions = await GenerateSuggestionsWithLLM(suggestionPrompt, token);
+                }
+                else
+                {
+                    // For non-LLM APIs, provide a fallback message
+                    suggestions = "[INFO] Suggestions require an LLM-based API (OpenAI, Ollama, or OpenRouter). Please switch to an LLM-based API in settings to enable suggestions.";
+                }
+                
+                // Update the caption with suggestions
+                Caption.ConversationSuggestions = suggestions;
+                
+                return suggestions;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Suggestion Generation Failed: {ex.Message}");
+                return $"[ERROR] Could not generate suggestions: {ex.Message}";
             }
         }
 
