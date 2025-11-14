@@ -15,9 +15,19 @@ namespace LiveCaptionsTranslator.models
         private string displayTranslatedCaption = "";
         private string overlayOriginalCaption = "";
         private string overlayTranslatedCaption = "";
+        private string conversationSuggestions = "";
 
         public string OriginalCaption { get; set; } = "";
         public string TranslatedCaption { get; set; } = "";
+        public string ConversationSuggestions
+        {
+            get => conversationSuggestions;
+            set
+            {
+                conversationSuggestions = value;
+                OnPropertyChanged("ConversationSuggestions");
+            }
+        }
         public string DisplayOriginalCaption
         {
             get => displayOriginalCaption;

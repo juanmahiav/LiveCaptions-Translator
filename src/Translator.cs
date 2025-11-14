@@ -16,6 +16,9 @@ namespace LiveCaptionsTranslator
 
         private static readonly Queue<string> pendingTextQueue = new();
         private static readonly TranslationTaskQueue translationTaskQueue = new();
+        private static DateTime lastSpeechTime = DateTime.Now;
+        private static string accumulatedText = "";
+        private static readonly int PAUSE_DETECTION_MS = 3000; // 2 second pause detection
 
         public static AutomationElement? Window
         {
@@ -70,8 +73,42 @@ namespace LiveCaptionsTranslator
                     Window = null;
                     continue;
                 }
+
+                // Pause detection logic for suggestion mode
+                if (Setting.SuggestionMode)
+                {
+                    if (string.IsNullOrEmpty(fullText))
+                    {
+                        // Check if we've had a 1-second pause
+                        if ((DateTime.Now - lastSpeechTime).TotalMilliseconds >= PAUSE_DETECTION_MS)
+                        {
+                            // If we have accumulated text and it's been 1 second since last speech
+                            if (!string.IsNullOrEmpty(accumulatedText) && accumulatedText.Length > 10)
+                            {
+                                // Send accumulated text for suggestion generation
+                                pendingTextQueue.Enqueue(accumulatedText);
+                                accumulatedText = ""; // Reset accumulated text
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Speech detected, update last speech time and accumulate text
+                        lastSpeechTime = DateTime.Now;
+                        
+                        // Accumulate new text that wasn't there before
+                        if (!string.IsNullOrEmpty(fullText) && !fullText.Equals(Caption.OriginalCaption, StringComparison.Ordinal))
+                        {
+                            accumulatedText = fullText;
+                        }
+                    }
+                }
+
                 if (string.IsNullOrEmpty(fullText))
+                {
+                    Thread.Sleep(25);
                     continue;
+                }
 
                 // Preprocess
                 fullText = RegexPatterns.Acronym().Replace(fullText, "$1$2");
@@ -239,21 +276,35 @@ namespace LiveCaptionsTranslator
         public static async Task<(string, bool)> Translate(string text, CancellationToken token = default)
         {
             string translatedText;
-            bool isChoke = Array.IndexOf(TextUtil.PUNC_EOS, text[^1]) != -1;
+            bool isChoke = false;
             
             try
             {
                 var sw = Setting.MainWindow.LatencyShow ? Stopwatch.StartNew() : null;
-                if (Setting.ContextAware && !TranslateAPI.IsLLMBased)
+                
+                if (Setting.SuggestionMode)
                 {
-                    translatedText = await TranslateAPI.TranslateFunction($"{Caption.ContextPreviousCaption} <[{text}]>", token);
-                    translatedText = RegexPatterns.TargetSentence().Match(translatedText).Groups[1].Value;
+                    // In suggestion mode, generate conversation suggestions instead of translation
+                    translatedText = await GenerateSuggestions(text, token);
+                    isChoke = true; // Always choke for suggestions to ensure they're displayed
                 }
                 else
                 {
-                    translatedText = await TranslateAPI.TranslateFunction(text, token);
-                    translatedText = translatedText.Replace("🔤", "");
+                    // Normal translation mode
+                    isChoke = Array.IndexOf(TextUtil.PUNC_EOS, text[^1]) != -1;
+                    
+                    if (Setting.ContextAware && !TranslateAPI.IsLLMBased)
+                    {
+                        translatedText = await TranslateAPI.TranslateFunction($"{Caption.ContextPreviousCaption} <[{text}]>", token);
+                        translatedText = RegexPatterns.TargetSentence().Match(translatedText).Groups[1].Value;
+                    }
+                    else
+                    {
+                        translatedText = await TranslateAPI.TranslateFunction(text, token);
+                        translatedText = translatedText.Replace("🔤", "");
+                    }
                 }
+                
                 if (sw != null)
                 {
                     sw.Stop();
@@ -266,11 +317,72 @@ namespace LiveCaptionsTranslator
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] Translation Failed: {ex.Message}");
-                return ($"[ERROR] Translation Failed: {ex.Message}", isChoke);
+                Console.WriteLine($"[ERROR] Translation/Suggestion Failed: {ex.Message}");
+                return ($"[ERROR] Translation/Suggestion Failed: {ex.Message}", isChoke);
             }
 
             return (translatedText, isChoke);
+        }
+
+        public static async Task<string> GenerateSuggestions(string conversationText, CancellationToken token = default)
+        {
+            try
+            {
+                // Create a prompt for generating conversation suggestions
+                string suggestionPrompt = $"Based on this conversation context: \"{conversationText}\", " +
+                    "provide exactly 3 brief and natural conversation suggestions to continue the dialogue. " +
+                    "Format them as a numbered list (1., 2., 3.) and keep each suggestion under 10 words. " +
+                    "Make suggestions friendly and relevant for gaming conversations, especially for Arc Raiders, a third-person extraction shooter where players team up to explore a post-apocalyptic Earth, fight against hostile robots called the 'ARC,' and collect loot, with the risk of losing everything if they are defeated, a player-versus-environment-versus-player (PvEvP) game." +
+                    "Focus on tactical communication, team coordination, or casual gaming chat.";
+
+                // Use the LLM API directly to generate suggestions (not through translation)
+                string suggestions;
+                
+                if (TranslateAPI.IsLLMBased)
+                {
+                    // For LLM-based APIs, send the prompt directly as a system message
+                    suggestions = await GenerateSuggestionsWithLLM(suggestionPrompt, token);
+                }
+                else
+                {
+                    // For non-LLM APIs, we can't generate suggestions, so return a message
+                    suggestions = "[ERROR] Suggestions require an LLM-based API (OpenAI, Ollama, or OpenRouter)";
+                }
+                
+                // Store suggestions in the Caption for display
+                Caption.ConversationSuggestions = suggestions;
+                
+                return suggestions;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Suggestion Generation Failed: {ex.Message}");
+                return "[ERROR] Could not generate suggestions";
+            }
+        }
+
+        public static async Task<string> GenerateSuggestionsWithLLM(string prompt, CancellationToken token = default)
+        {
+            // Create messages for LLM with the prompt as user input
+            var messages = new List<BaseLLMConfig.Message>
+            {
+                new BaseLLMConfig.Message { role = "user", content = prompt }
+            };
+
+            // Use the appropriate LLM API directly
+            string apiName = Setting.ApiName;
+            
+            switch (apiName)
+            {
+                case "OpenAI":
+                    return await TranslateAPI.OpenAIWithCustomMessages(messages, token);
+                case "Ollama":
+                    return await TranslateAPI.OllamaWithCustomMessages(messages, token);
+                case "OpenRouter":
+                    return await TranslateAPI.OpenRouterWithCustomMessages(messages, token);
+                default:
+                    return "[ERROR] Unsupported LLM API for suggestions";
+            }
         }
 
         public static async Task Log(string originalText, string translatedText,

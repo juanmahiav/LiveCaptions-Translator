@@ -32,6 +32,128 @@ namespace LiveCaptionsTranslator.utils
         {
             "Ollama", "OpenAI", "OpenRouter"
         };
+
+        public static async Task<string> OpenAIWithCustomMessages(List<BaseLLMConfig.Message> messages, CancellationToken token = default)
+        {
+            var config = Translator.Setting["OpenAI"] as OpenAIConfig;
+            string apiUrl = TextUtil.NormalizeUrl(config.ApiUrl);
+
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+
+            HttpResponseMessage response;
+            try
+            {
+                var requestData = LLMRequestDataFactory.Create("OpenAI", config.ModelName, messages, config.Temperature);
+                string jsonContent = JsonSerializer.Serialize(requestData, requestData.GetType());
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                response = await client.PostAsync(apiUrl, content, token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                if (ex.Message.StartsWith("The request"))
+                    return $"[ERROR] Suggestion Generation Failed: The request was canceled due to timeout (> 8 seconds), " +
+                           $"please use a faster API or check network connection.";
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return $"[ERROR] Suggestion Generation Failed: {ex.Message}";
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                string responseString = await response.Content.ReadAsStringAsync();
+                var responseObj = JsonSerializer.Deserialize<OpenAIConfig.Response>(responseString);
+                var output = responseObj.choices[0].message.content;
+                return RegexPatterns.ModelThinking().Replace(output, "");
+            }
+            else
+                return $"[ERROR] Suggestion Generation Failed: HTTP Error - {response.StatusCode}";
+        }
+
+        public static async Task<string> OllamaWithCustomMessages(List<BaseLLMConfig.Message> messages, CancellationToken token = default)
+        {
+            var config = Translator.Setting["Ollama"] as OllamaConfig;
+            string apiUrl = TextUtil.NormalizeUrl(config.ApiUrl + "/api/chat");
+
+            var requestData = LLMRequestDataFactory.Create("Ollama", config.ModelName, messages, config.Temperature);
+
+            string jsonContent = JsonSerializer.Serialize(requestData, requestData.GetType());
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            client.DefaultRequestHeaders.Clear();
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync(apiUrl, content, token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                if (ex.Message.StartsWith("The request"))
+                    return $"[ERROR] Suggestion Generation Failed: The request was canceled due to timeout (> 8 seconds), " +
+                           $"please use a faster API or check network connection.";
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return $"[ERROR] Suggestion Generation Failed: {ex.Message}";
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                string responseString = await response.Content.ReadAsStringAsync();
+                var responseObj = JsonSerializer.Deserialize<OllamaConfig.Response>(responseString);
+                var output = responseObj.message.content;
+                return RegexPatterns.ModelThinking().Replace(output, "");
+            }
+            else
+                return $"[ERROR] Suggestion Generation Failed: HTTP Error - {response.StatusCode}";
+        }
+
+        public static async Task<string> OpenRouterWithCustomMessages(List<BaseLLMConfig.Message> messages, CancellationToken token = default)
+        {
+            var config = Translator.Setting["OpenRouter"] as OpenRouterConfig;
+            string apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+
+            var requestData = LLMRequestDataFactory.Create("OpenRouter", config.ModelName, messages, config.Temperature);
+
+            string jsonContent = JsonSerializer.Serialize(requestData, requestData.GetType());
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {config?.ApiKey}");
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync(apiUrl, content, token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                if (ex.Message.StartsWith("The request"))
+                    return $"[ERROR] Suggestion Generation Failed: The request was canceled due to timeout (> 8 seconds), " +
+                           $"please use a faster API or check network connection.";
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return $"[ERROR] Suggestion Generation Failed: {ex.Message}";
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var jsonResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var output = jsonResponse.GetProperty("choices")[0]
+                                         .GetProperty("message")
+                                         .GetProperty("content")
+                                         .GetString() ?? string.Empty;
+                return RegexPatterns.ModelThinking().Replace(output, "");
+            }
+            else
+                return $"[ERROR] Suggestion Generation Failed: HTTP Error - {response.StatusCode}";
+        }
         public static readonly List<string> NO_CONFIG_APIS = new()
         {
             "Google", "Google2"

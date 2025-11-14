@@ -18,6 +18,7 @@ namespace LiveCaptionsTranslator.models
         private int maxIdleInterval = 50;
         private int maxSyncInterval = 3;
         private bool contextAware = false;
+        private bool suggestionMode = false;
 
         private string apiName;
         private string targetLanguage;
@@ -49,6 +50,15 @@ namespace LiveCaptionsTranslator.models
             {
                 contextAware = value;
                 OnPropertyChanged("ContextAware");
+            }
+        }
+        public bool SuggestionMode
+        {
+            get => suggestionMode;
+            set
+            {
+                suggestionMode = value;
+                OnPropertyChanged("SuggestionMode");
             }
         }
 

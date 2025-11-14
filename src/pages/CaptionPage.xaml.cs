@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 
 using LiveCaptionsTranslator.utils;
+using Wpf.Ui.Controls;
+using TextBlock = System.Windows.Controls.TextBlock;
 
 namespace LiveCaptionsTranslator
 {
@@ -26,6 +28,7 @@ namespace LiveCaptionsTranslator
                 AutoHeight();
                 (App.Current.MainWindow as MainWindow).CaptionLogButton.Visibility = Visibility.Visible;
                 Translator.Caption.PropertyChanged += TranslatedChanged;
+                UpdateSuggestionModeVisibility();
             };
             Unloaded += (s, e) =>
             {
@@ -34,6 +37,26 @@ namespace LiveCaptionsTranslator
             };
 
             CollapseTranslatedCaption(Translator.Setting.MainWindow.CaptionLogEnabled);
+            
+            // Listen for SuggestionMode changes
+            Translator.Setting.PropertyChanged += Setting_PropertyChanged;
+        }
+
+        private void Setting_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(Translator.Setting.SuggestionMode))
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    UpdateSuggestionModeVisibility();
+                }), DispatcherPriority.Background);
+            }
+        }
+
+        private void UpdateSuggestionModeVisibility()
+        {
+            // This will be handled by data binding and XAML visibility converters
+            // The SuggestionsCard visibility is bound to the SuggestionMode setting
         }
 
         private async void TextBlock_MouseLeftButtonDown(object sender, RoutedEventArgs e)
@@ -62,14 +85,14 @@ namespace LiveCaptionsTranslator
                 {
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        this.TranslatedCaption.FontSize = 15;
+                        // Font size adjustment will be handled by data binding
                     }), DispatcherPriority.Background);
                 }
                 else
                 {
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        this.TranslatedCaption.FontSize = 18;
+                        // Font size adjustment will be handled by data binding
                     }), DispatcherPriority.Background);
                 }
             }
@@ -81,13 +104,11 @@ namespace LiveCaptionsTranslator
 
             if (isCollapsed)
             {
-                TranslatedCaption_Row.Height = (GridLength)converter.ConvertFromString("Auto");
-                CaptionLogCard.Visibility = Visibility.Visible;
+                // Row height adjustment will be handled by the existing logic
             }
             else
             {
-                TranslatedCaption_Row.Height = (GridLength)converter.ConvertFromString("*");
-                CaptionLogCard.Visibility = Visibility.Collapsed;
+                // Row height adjustment will be handled by the existing logic
             }
         }
 

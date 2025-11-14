@@ -120,6 +120,25 @@ namespace LiveCaptionsTranslator
             }
         }
 
+        private void SuggestionModeButton_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            var symbolIcon = button?.Icon as SymbolIcon;
+
+            if (Translator.Setting.SuggestionMode)
+            {
+                Translator.Setting.SuggestionMode = false;
+                symbolIcon.Filled = false;
+                ShowSnackbar("Translation Mode", "Switched to translation mode", false);
+            }
+            else
+            {
+                Translator.Setting.SuggestionMode = true;
+                symbolIcon.Filled = true;
+                ShowSnackbar("Suggestion Mode", "Switched to conversation suggestion mode", false);
+            }
+        }
+
         private void CaptionLogButton_Click(object sender, RoutedEventArgs e)
         {
             Translator.Setting.MainWindow.CaptionLogEnabled = !Translator.Setting.MainWindow.CaptionLogEnabled;

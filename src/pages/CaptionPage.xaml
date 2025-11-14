@@ -14,6 +14,7 @@
         <Grid.RowDefinitions>
             <RowDefinition x:Name="OriginalCaption_Row" Height="Auto" />
             <RowDefinition x:Name="TranslatedCaption_Row" Height="Auto" />
+            <RowDefinition x:Name="Suggestions_Row" Height="Auto" />
             <RowDefinition x:Name="CaptionLogCard_Row" Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.Resources>
@@ -21,6 +22,8 @@
                 <Setter Property="TextWrapping" Value="Wrap" />
                 <Setter Property="VerticalAlignment" Value="Stretch" />
             </Style>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <local:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter" />
         </Grid.Resources>
 
         <ui:Card
@@ -56,8 +59,35 @@
         </ui:Card>
 
         <ui:Card
-            x:Name="CaptionLogCard"
+            x:Name="SuggestionsCard"
             Grid.Row="2"
+            Margin="0,3,0,0"
+            Padding="8"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding ConversationSuggestions, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
+            <StackPanel>
+                <ui:TextBlock
+                    FontSize="14"
+                    FontWeight="SemiBold"
+                    Foreground="#FF6B9DFF"
+                    Text="Conversation Suggestions:" />
+                <TextBlock
+                    x:Name="SuggestionsText"
+                    Margin="0,5,0,0"
+                    Background="Transparent"
+                    Cursor="Hand"
+                    FontSize="13"
+                    MouseLeftButtonDown="TextBlock_MouseLeftButtonDown"
+                    Style="{StaticResource CaptionBlockStyle}"
+                    Text="{Binding ConversationSuggestions, UpdateSourceTrigger=PropertyChanged}"
+                    TextWrapping="Wrap"
+                    ToolTip="Click To Copy Suggestions" />
+            </StackPanel>
+        </ui:Card>
+
+        <ui:Card
+            x:Name="CaptionLogCard"
+            Grid.Row="3"
             Margin="0,0,0,5"
             Padding="8"
             VerticalAlignment="Top"
