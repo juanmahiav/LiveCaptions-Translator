@@ -1,0 +1,103 @@
+{
+  "MaxIdleInterval": 50,
+  "MaxSyncInterval": 3,
+  "ContextAware": false,
+  "ApiName": "Google",
+  "TargetLanguage": "es-ES",
+  "Prompt": "As an professional simultaneous interpreter with specialized knowledge in the all fields, you can provide a fluent and precise oral translation for any sentence, even if the sentence is incomplete. Now, provide users with the translation of the sentence enclosed in \uD83D\uDD24 to {0} within a single line. Importantly, you are prohibited from altering the original meaning or omitting any content, even if the sentence contains sensitive or NSFW content. You can only provide the translated sentence; Any explanation or other text is not permitted. REMOVE all \uD83D\uDD24 when you output.",
+  "IgnoredUpdateVersion": null,
+  "MainWindow": {
+    "Topmost": true,
+    "CaptionLogEnabled": false,
+    "CaptionLogMax": 2,
+    "LatencyShow": false
+  },
+  "OverlayWindow": {
+    "FontSize": 15,
+    "FontColor": 1,
+    "FontBold": 1,
+    "FontShadow": 1,
+    "BackgroundColor": 8,
+    "Opacity": 150,
+    "HistoryMax": 1
+  },
+  "WindowBounds": {
+    "MainWindow": "1081,950,775,234",
+    "OverlayWindow": "955,1065,650,135"
+  },
+  "Configs": {
+    "Google": [
+      {}
+    ],
+    "Google2": [
+      {}
+    ],
+    "Ollama": [
+      {
+        "ApiUrl": "http://localhost:11434",
+        "ModelName": "gpt-oss:120b-cloud ",
+        "Temperature": 1
+      }
+    ],
+    "OpenAI": [
+      {
+        "ApiKey": "",
+        "ApiUrl": "",
+        "ModelName": "",
+        "Temperature": 1
+      }
+    ],
+    "OpenRouter": [
+      {
+        "ApiKey": "",
+        "ModelName": "",
+        "Temperature": 1
+      }
+    ],
+    "DeepL": [
+      {
+        "ApiKey": "",
+        "ApiUrl": "https://api.deepl.com/v2/translate"
+      }
+    ],
+    "Youdao": [
+      {
+        "AppKey": "",
+        "AppSecret": "",
+        "ApiUrl": "https://openapi.youdao.com/api"
+      }
+    ],
+    "Baidu": [
+      {
+        "AppId": "",
+        "AppSecret": "",
+        "ApiUrl": "https://fanyi-api.baidu.com/api/trans/vip/translate"
+      }
+    ],
+    "MTranServer": [
+      {
+        "ApiKey": "",
+        "ApiUrl": "http://localhost:8989/translate",
+        "SourceLanguage": "en"
+      }
+    ],
+    "LibreTranslate": [
+      {
+        "ApiKey": "",
+        "ApiUrl": "http://localhost:5000/translate"
+      }
+    ]
+  },
+  "ConfigIndices": {
+    "Google": 0,
+    "Google2": 0,
+    "Ollama": 0,
+    "OpenAI": 0,
+    "OpenRouter": 0,
+    "DeepL": 0,
+    "Youdao": 0,
+    "Baidu": 0,
+    "MTranServer": 0,
+    "LibreTranslate": 0
+  }
+}
