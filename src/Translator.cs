@@ -19,7 +19,7 @@ namespace LiveCaptionsTranslator
         private static readonly SuggestionTaskQueue suggestionTaskQueue = new();
         private static DateTime lastSpeechTime = DateTime.Now;
         private static string accumulatedText = "";
-        private static readonly int PAUSE_DETECTION_MS = 1000; // 3 second pause detection
+        private static readonly int PAUSE_DETECTION_MS = 1000; // N second pause detection
 
         public static AutomationElement? Window
         {

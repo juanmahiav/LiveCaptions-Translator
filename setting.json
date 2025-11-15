@@ -14,7 +14,7 @@
     "LatencyShow": false
   },
   "OverlayWindow": {
-    "FontSize": 15,
+    "FontSize": 21,
     "FontColor": 1,
     "FontBold": 1,
     "FontShadow": 1,
@@ -23,8 +23,8 @@
     "HistoryMax": 1
   },
   "WindowBounds": {
-    "MainWindow": "705,896,901,281",
-    "OverlayWindow": "704,273,746,588"
+    "MainWindow": "820,834,901,170",
+    "OverlayWindow": "651,197,669,394"
   },
   "Configs": {
     "Google": [

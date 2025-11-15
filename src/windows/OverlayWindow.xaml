@@ -40,6 +40,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <Grid.Resources>
@@ -47,6 +48,7 @@
                         <Setter Property="TextWrapping" Value="Wrap" />
                         <Setter Property="VerticalAlignment" Value="Stretch" />
                     </Style>
+                    <local:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter" />
                 </Grid.Resources>
 
                 <ui:Card
@@ -98,9 +100,39 @@
                     </TextBlock>
                 </ui:Card>
 
+                <ui:Card
+                    x:Name="SuggestionsCard"
+                    Grid.Row="2"
+                    Margin="5,1,5,3"
+                    Padding="8"
+                    VerticalAlignment="Top"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Visibility="{Binding ConversationSuggestions, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
+                    <StackPanel>
+                        <ui:TextBlock
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Foreground="#FF6B9DFF"
+                            Text="Suggestions:" />
+                        <TextBlock
+                            x:Name="SuggestionsText"
+                            Margin="0,3,0,0"
+                            Background="Transparent"
+                            Cursor="Hand"
+                            FontSize="18"
+                            Foreground="#FFFFFFFF"
+                            MouseLeftButtonDown="TextBlock_MouseLeftButtonDown"
+                            Style="{StaticResource CaptionBlockStyle}"
+                            Text="{Binding ConversationSuggestions, UpdateSourceTrigger=PropertyChanged}"
+                            TextWrapping="Wrap"
+                            ToolTip="Click To Copy Suggestions" />
+                    </StackPanel>
+                </ui:Card>
+
                 <StackPanel
                     x:Name="ControlPanel"
-                    Grid.Row="1"
+                    Grid.Row="2"
                     Margin="0,0,5,5"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"

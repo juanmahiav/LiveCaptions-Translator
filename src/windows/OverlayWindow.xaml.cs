@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -68,6 +69,14 @@ namespace LiveCaptionsTranslator
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 this.DragMove();
+            }
+        }
+
+        private void TextBlock_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBlock textBlock)
+            {
+                Clipboard.SetText(textBlock.Text);
             }
         }
 
@@ -199,6 +208,7 @@ namespace LiveCaptionsTranslator
                 Translator.Setting.OverlayWindow.FontColor = 1;
             TranslatedCaption.Foreground = ColorList[Translator.Setting.OverlayWindow.FontColor];
             OriginalCaption.Foreground = ColorList[Translator.Setting.OverlayWindow.FontColor];
+            SuggestionsText.Foreground = ColorList[Translator.Setting.OverlayWindow.FontColor];
         }
 
         private void OpacityIncrease_Click(object sender, RoutedEventArgs e)
@@ -232,7 +242,7 @@ namespace LiveCaptionsTranslator
 
         private void OnlyModeButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as Button;
+            var button = sender as Wpf.Ui.Controls.Button;
             var symbolIcon = button?.Icon as SymbolIcon;
 
             if (onlyMode == 2)
